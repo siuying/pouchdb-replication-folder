@@ -18,3 +18,4 @@ db1.replicateFolder(dropboxAppPath, dbId, userId).then((res) => {
 ```
 
 on another computer, run the same code using a same dbID and different userID, and two databases should sync.
+
