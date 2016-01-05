@@ -1,0 +1,26 @@
+{
+  "name": "pouchdb-replication-folder",
+  "version": "1.0.0",
+  "description": "Replicate PouchDB/CouchDB database with a shared folder (e.g. Dropbox, iCloud Drive ...etc)",
+  "main": "index.js",
+  "keywords": [
+    "pouch",
+    "pouchdb",
+    "plugin",
+    "dropbox",
+    "icloud",
+    "file",
+    "replication",
+    "couch",
+    "couchdb"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Francis Chong <francis@ignition.hk> (http://reality.hk/)",
+  "license": "MIT",
+  "dependencies": {
+    "pouchdb-dump-cli": "^2.0.3",
+    "pouchdb-load": "^1.4.3"
+  }
+}
