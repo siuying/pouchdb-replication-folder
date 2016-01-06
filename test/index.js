@@ -1,11 +1,20 @@
 import mocha from 'mocha'
-import expect from 'expect.js'
-import * as replicate from '../src'
-import PouchDB from 'pouchdb'
-import tmp from 'tmp'
+import { expect } from 'chai'
 
-console.log("replicate", replicate)
-PouchDB.plugin(replicate)
+import path from 'path'
+import fs from 'fs'
+import tmp from 'tmp'
+import memdown from 'memdown'
+import lastLine from 'last-line'
+
+import replicationStream from 'pouchdb-replication-stream'
+import replicateFolder from '../src'
+import PouchDB from 'pouchdb'
+import PouchStream from 'pouch-stream'
+import {deleteFolderRecursive} from './utils'
+
+PouchDB.plugin(replicateFolder.plugin)
+PouchDB.debug.enable('*')
 
 describe('pouchdb-replicate-folder', () => {
   var db = null
@@ -17,11 +26,9 @@ describe('pouchdb-replicate-folder', () => {
   })
 
   describe('#exportFolder', () => {
-    it('should export db to folder', (done) => {
+    it('should export db to folder, with seq', (done) => {
       var tempDir = tmp.dirSync()
-      console.log("folder:", tempDir.name)
-
-      var db = new PouchDB('test', {adapter: 'memory'})
+      var db = new PouchDB('test', {db: memdown})
       db.put({
         _id: 'dave@gmail.com',
         name: 'David',
@@ -34,11 +41,16 @@ describe('pouchdb-replicate-folder', () => {
       })
 
       db.exportFolder(tempDir.name, 'database', 'user1').then(() => {
-        tempDir.removeCallback()
-        done()
+        const fullPath = path.join(tempDir.name, 'database', 'users', 'user1', '0.log')
+        lastLine(fullPath, (err, res) => {
+          const data = JSON.parse(res)
+          expect(data).to.deep.equal({seq: 2})
+          deleteFolderRecursive(tempDir.name)
+          done()
+        })
 
       }).catch((error) => {
-        tempDir.removeCallback()
+        deleteFolderRecursive(tempDir.name)
         fail(error)
 
       })

@@ -18,8 +18,12 @@ function mkdirp2(dir) {
 }
 
 // simply export current db to path
-export function exportFolder(replicatePath, dbId, currentUserId, options={since: 0}) {
+function exportFolder(replicatePath, dbId, currentUserId, options={since: 0}) {
   const db = this
+  const PouchDB = this.constructor
+  PouchDB.plugin(replicationStream.plugin)
+  PouchDB.adapter('writableStream', replicationStream.adapters.writableStream)
+
   const {since} = options
   const userDbPath = path.join(replicatePath, dbId, 'users', currentUserId)
   return mkdirp2(userDbPath).then(() => {
@@ -29,8 +33,12 @@ export function exportFolder(replicatePath, dbId, currentUserId, options={since:
   })
 }
 
-export function replicateFolder(replicatePath, dbId, currentUserId) {
+function replicateFolder(replicatePath, dbId, currentUserId) {
   const db = this
+  const PouchDB = this.constructor
+  PouchDB.plugin(replicationStream.plugin)
+  PouchDB.adapter('writableStream', replicationStream.adapters.writableStream)
+
   const userDbPath = path.join(dbPath, 'users', currentUserId)
   return mkdirp2(userDbPath).then(() => {
     const exportPromise = exportFolder(db, userDbPath).then(() => {
@@ -45,4 +53,11 @@ export function replicateFolder(replicatePath, dbId, currentUserId) {
     })
     return exportPromise
   })
+}
+
+export default {
+  plugin: {
+    exportFolder,
+    replicateFolder,
+  }
 }
