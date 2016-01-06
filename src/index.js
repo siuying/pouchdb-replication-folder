@@ -11,7 +11,7 @@ function mkdirp2(dir) {
       if (error) {
         reject(error)
       } else {
-        resolve()
+        resolve(dir)
       }
     })
   })
@@ -27,6 +27,7 @@ function dumpFilePath(replicatePath, dbId, userId, sinceId) {
 
 // simply export current db to path
 function exportFolder(replicatePath, dbId, currentUserId, options={since: 0}) {
+  console.log("exportFolder", replicatePath, dbId, currentUserId, options)
   var db = this
   var PouchDB = this.constructor
   PouchDB.plugin(replicationStream.plugin)
@@ -41,8 +42,27 @@ function exportFolder(replicatePath, dbId, currentUserId, options={since: 0}) {
   })
 }
 
+function watchDbAndExportFolder(replicatePath, dbId, userId, options={since: 0}) {
+  var db = this
+  var {since} = options
+
+  return new Promise((resolve, reject) => {
+    var options = {
+      since: since,
+      include_docs: true
+    }
+    var changeObject = db.changes(options).on('change', (changes) => {
+      const sequence = changes.seq
+      exportFolder.bind(db)(replicatePath, dbId, userId, {since: sequence})
+    }).on('error', (err) => {
+      reject(err)
+    })
+    resolve({changes: changeObject})
+  })
+}
+
 // replicate a folder
-// return a promise that has a object that have a cancel() method, to cancel replication
+// return an object that have a cancel() method, to cancel replication
 function replicateFolder(replicatePath, dbId, currentUserId, options={since: 0}) {
   var db = this
   var PouchDB = this.constructor
@@ -52,38 +72,10 @@ function replicateFolder(replicatePath, dbId, currentUserId, options={since: 0})
 
   var userDbPath = databasePath(replicatePath, dbId, currentUserId)
   return mkdirp2(userDbPath).then(() => {
-    // 1. export folder
-    // 2. watch the db and export folder when its change
-
     var path = dumpFilePath(replicatePath, dbId, currentUserId, since)
-    var exportPromise = exportFolder.bind(this)(replicatePath, dbId, currentUserId, {since: since}).then((result) => {
-      return new Promise((resolve, reject) => {
-        lastLine(path, (err, res) => {
-          if (err) {
-            reject(err)
-            return
-          }
-
-          var {seq} = JSON.parse(res)
-          var changeObject = db.changes({
-            since: seq,
-            include_docs: true
-          }).on('change', (changes) => {
-            const sequence = changes[0].seq
-            exportFolder.bind(this)(db, userDbPath, {sequence})
-
-          }).on('complete', (info) => {
-            // changes() was canceled
-
-          }).on('error', (err) => {
-            reject(err)
-          })
-
-          resolve(changeObject)
-        })
-      })
+    return exportFolder.bind(db)(replicatePath, dbId, currentUserId, {since: since}).then((result) => {
+      return watchDbAndExportFolder.bind(db)(replicatePath, dbId, currentUserId, {since: 2})
     })
-    return exportPromise
   })
 }
 

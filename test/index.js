@@ -24,6 +24,7 @@ describe('pouchdb-replicate-folder', () => {
   })
 
   afterEach(() => {
+    db.destroy()
     db = null
   })
 
@@ -98,34 +99,10 @@ describe('pouchdb-replicate-folder', () => {
   })
 
   describe('#replicateFolder', () => {
-    it('should export db to folder', (done) => {
-      var tempDir = tmp.dirSync()
-      db.put({
-        _id: 'dave@gmail.com',
-        name: 'David',
-        age: 68
-      })
-      db.put({
-        _id: 'joe@gmail.com',
-        name: 'Joe',
-        age: 28
-      })
+    it('should export db', (done) => {
+    })
 
-      db.replicateFolder(tempDir.name, 'replicate-test', 'user1').then((result) => {
-        console.log("result", result)
-        db.put({
-          _id: 'kelvin@gmail.com',
-          name: 'Kelvin',
-          age: 33
-        })
-        result.cancel()
-        deleteFolderRecursive(tempDir.name)
-        done()
-
-      }).catch((error) => {
-        deleteFolderRecursive(tempDir.name)
-        fail(error)
-      })
+    it('should export db again after it changes', (done) => {
     })
   })
 })
