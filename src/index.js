@@ -3,9 +3,10 @@ import fs from 'fs'
 import mkdirp from 'mkdirp'
 import replicationStream from 'pouchdb-replication-stream'
 import through2 from 'through2'
+import lastLine from 'last-line'
 
 function mkdirp2(dir) {
-  const promise = new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     mkdirp(dir, (error) => {
       if (error) {
         reject(error)
@@ -14,42 +15,73 @@ function mkdirp2(dir) {
       }
     })
   })
-  return promise
+}
+
+function databasePath(replicatePath, dbId, userId) {
+  return path.join(replicatePath, dbId, 'users', userId)
+}
+
+function dumpFilePath(replicatePath, dbId, userId, sinceId) {
+  return path.join(replicatePath, dbId, 'users', userId, `${sinceId}.log`)
 }
 
 // simply export current db to path
 function exportFolder(replicatePath, dbId, currentUserId, options={since: 0}) {
-  const db = this
-  const PouchDB = this.constructor
+  var db = this
+  var PouchDB = this.constructor
   PouchDB.plugin(replicationStream.plugin)
   PouchDB.adapter('writableStream', replicationStream.adapters.writableStream)
 
-  const {since} = options
-  const userDbPath = path.join(replicatePath, dbId, 'users', currentUserId)
+  var {since} = options
+  var userDbPath = databasePath(replicatePath, dbId, currentUserId)
   return mkdirp2(userDbPath).then(() => {
-    const dumpFilePath = path.join(userDbPath, `${since}.log`)
-    const outstream = fs.createWriteStream(dumpFilePath, { encoding: 'utf8' })
+    var path = dumpFilePath(replicatePath, dbId, currentUserId, since)
+    var outstream = fs.createWriteStream(path, { encoding: 'utf8' })
     return db.dump(outstream, options)
   })
 }
 
-function replicateFolder(replicatePath, dbId, currentUserId) {
-  const db = this
-  const PouchDB = this.constructor
+// replicate a folder
+// return a promise that has a object that have a cancel() method, to cancel replication
+function replicateFolder(replicatePath, dbId, currentUserId, options={since: 0}) {
+  var db = this
+  var PouchDB = this.constructor
+  var {since} = options
   PouchDB.plugin(replicationStream.plugin)
   PouchDB.adapter('writableStream', replicationStream.adapters.writableStream)
 
-  const userDbPath = path.join(dbPath, 'users', currentUserId)
+  var userDbPath = databasePath(replicatePath, dbId, currentUserId)
   return mkdirp2(userDbPath).then(() => {
-    const exportPromise = exportFolder(db, userDbPath).then(() => {
-      const changePromise = db.changes({
-        since: 0,
-        include_docs: true
-      }).then((changes) => {
-        const sequence = changes[0].seq
-        return exportFolder(db, userDbPath, {sequence})
+    // 1. export folder
+    // 2. watch the db and export folder when its change
+
+    var path = dumpFilePath(replicatePath, dbId, currentUserId, since)
+    var exportPromise = exportFolder.bind(this)(replicatePath, dbId, currentUserId, {since: since}).then((result) => {
+      return new Promise((resolve, reject) => {
+        lastLine(path, (err, res) => {
+          if (err) {
+            reject(err)
+            return
+          }
+
+          var {seq} = JSON.parse(res)
+          var changeObject = db.changes({
+            since: seq,
+            include_docs: true
+          }).on('change', (changes) => {
+            const sequence = changes[0].seq
+            exportFolder.bind(this)(db, userDbPath, {sequence})
+
+          }).on('complete', (info) => {
+            // changes() was canceled
+
+          }).on('error', (err) => {
+            reject(err)
+          })
+
+          resolve(changeObject)
+        })
       })
-      return changePromise
     })
     return exportPromise
   })

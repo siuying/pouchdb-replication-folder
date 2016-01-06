@@ -84,17 +84,48 @@ describe('pouchdb-replicate-folder', () => {
 
       db.exportFolder(tempDir.name, 'database', 'user1', {since: 2}).then(() => {
         const fullPath = path.join(tempDir.name, 'database', 'users', 'user1', '2.log')
-        lastLine(fullPath, (err, res) => {
-          var data = JSON.parse(res)
-          expect(data).to.deep.equal({seq: 3})
-          deleteFolderRecursive(tempDir.name)
-          done()
-        })
+        const lines = fs.readFileSync(fullPath).toString().split('\n')
+        expect(JSON.parse(lines[1])).to.deep.equal({seq: 2})
+        expect(JSON.parse(lines[2]).docs[0]._id).to.deep.equal("john@gmail.com")
+        expect(JSON.parse(lines[3])).to.deep.equal({seq: 3})
+        deleteFolderRecursive(tempDir.name)
+        done()
       }).catch((error) => {
         deleteFolderRecursive(tempDir.name)
         fail(error)
       })
     })
+  })
 
+  describe('#replicateFolder', () => {
+    it('should export db to folder', (done) => {
+      var tempDir = tmp.dirSync()
+      db.put({
+        _id: 'dave@gmail.com',
+        name: 'David',
+        age: 68
+      })
+      db.put({
+        _id: 'joe@gmail.com',
+        name: 'Joe',
+        age: 28
+      })
+
+      db.replicateFolder(tempDir.name, 'replicate-test', 'user1').then((result) => {
+        console.log("result", result)
+        db.put({
+          _id: 'kelvin@gmail.com',
+          name: 'Kelvin',
+          age: 33
+        })
+        result.cancel()
+        deleteFolderRecursive(tempDir.name)
+        done()
+
+      }).catch((error) => {
+        deleteFolderRecursive(tempDir.name)
+        fail(error)
+      })
+    })
   })
 })
