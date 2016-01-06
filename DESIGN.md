@@ -15,7 +15,7 @@
 
 ### importFolder(path, dbId, userId, lastSequenceId=0)
 
-1. Check if there files "path/:dbId/users/:userId/*.json"
+1. Check if there files ":path/:dbId/users/:userId/*.json"
 2. If there exists files, sort the files by name numerically
 3. For each files
   1. Check the sequence number of the file, if the lastSequenceId > sequence number, the skip the file
@@ -24,7 +24,7 @@
 
 ### exportFolder(path, dbId, userId)
 
-1. Check if there files path/:dbId/users/:userId/*.json"
+1. Check if there files ":path/:dbId/users/:userId/*.json"
 2. If there exists files, sort the files by name numerically, and find the largest number, set it as sequenceId
 3. Export database with sequenceId, and write file as latestSequenceId.json
 4. return latestSequenceId
