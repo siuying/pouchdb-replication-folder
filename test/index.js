@@ -14,21 +14,23 @@ import PouchStream from 'pouch-stream'
 import {deleteFolderRecursive} from './utils'
 
 PouchDB.plugin(replicateFolder.plugin)
-PouchDB.debug.enable('*')
+//PouchDB.debug.enable('*')
 
 describe('pouchdb-replicate-folder', () => {
   var db = null
 
   beforeEach(() => {
+    db = new PouchDB('test', {db: memdown})
   })
 
   afterEach(() => {
+    db = null
   })
 
   describe('#exportFolder', () => {
-    it('should export db to folder, with seq', (done) => {
+    it('should export db to folder', (done) => {
       var tempDir = tmp.dirSync()
-      var db = new PouchDB('test', {db: memdown})
+
       db.put({
         _id: 'dave@gmail.com',
         name: 'David',
@@ -43,17 +45,56 @@ describe('pouchdb-replicate-folder', () => {
       db.exportFolder(tempDir.name, 'database', 'user1').then(() => {
         const fullPath = path.join(tempDir.name, 'database', 'users', 'user1', '0.log')
         lastLine(fullPath, (err, res) => {
-          const data = JSON.parse(res)
+          var data = JSON.parse(res)
           expect(data).to.deep.equal({seq: 2})
+
+          db.put({
+            _id: 'john@gmail.com',
+            name: 'john',
+            age: 18
+          })
+
           deleteFolderRecursive(tempDir.name)
           done()
         })
-
       }).catch((error) => {
         deleteFolderRecursive(tempDir.name)
         fail(error)
-
       })
     })
+
+    it('should export db to folder with since sequence number', (done) => {
+      var tempDir = tmp.dirSync()
+
+      db.put({
+        _id: 'dave@gmail.com',
+        name: 'David',
+        age: 68
+      })
+      db.put({
+        _id: 'joe@gmail.com',
+        name: 'Joe',
+        age: 28
+      })
+      db.put({
+        _id: 'john@gmail.com',
+        name: 'john',
+        age: 18
+      })
+
+      db.exportFolder(tempDir.name, 'database', 'user1', {since: 2}).then(() => {
+        const fullPath = path.join(tempDir.name, 'database', 'users', 'user1', '2.log')
+        lastLine(fullPath, (err, res) => {
+          var data = JSON.parse(res)
+          expect(data).to.deep.equal({seq: 3})
+          deleteFolderRecursive(tempDir.name)
+          done()
+        })
+      }).catch((error) => {
+        deleteFolderRecursive(tempDir.name)
+        fail(error)
+      })
+    })
+
   })
 })
